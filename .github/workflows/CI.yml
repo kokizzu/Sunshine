@@ -29,7 +29,9 @@ jobs:
     name: Setup Release
     outputs:
       publish_release: ${{ steps.setup_release.outputs.publish_release }}
+      release_body: ${{ steps.setup_release.outputs.release_body }}
       release_commit: ${{ steps.setup_release.outputs.release_commit }}
+      release_generate_release_notes: ${{ steps.setup_release.outputs.release_generate_release_notes }}
       release_tag: ${{ steps.setup_release.outputs.release_tag }}
       release_version: ${{ steps.setup_release.outputs.release_version }}
     runs-on: ubuntu-latest
@@ -39,7 +41,7 @@ jobs:
 
       - name: Setup Release
         id: setup_release
-        uses: LizardByte/setup-release-action@v2024.524.1411
+        uses: LizardByte/setup-release-action@v2024.608.210128
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -178,11 +180,12 @@ jobs:
 
       - name: Create/Update GitHub Release
         if: ${{ needs.setup_release.outputs.publish_release == 'true' }}
-        uses: LizardByte/create-release-action@v2024.520.211408
+        uses: LizardByte/create-release-action@v2024.614.221009
         with:
           allowUpdates: true
+          body: ${{ needs.setup_release.outputs.release_body }}
           discussionCategory: announcements
-          generateReleaseNotes: true
+          generateReleaseNotes: ${{ needs.setup_release.outputs.release_generate_release_notes }}
           name: ${{ needs.setup_release.outputs.release_tag }}
           prerelease: true
           tag: ${{ needs.setup_release.outputs.release_tag }}
@@ -248,21 +251,18 @@ jobs:
           sudo apt-get install -y \
             build-essential \
             cmake \
+            doxygen \
+            graphviz \
             gcc-10 \
             g++-10 \
             libayatana-appindicator3-dev \
             libavdevice-dev \
-            libboost-filesystem-dev \
-            libboost-locale-dev \
-            libboost-log-dev \
-            libboost-program-options-dev \
             libcap-dev \
             libcurl4-openssl-dev \
             libdrm-dev \
             libevdev-dev \
             libfuse2 \
             libminiupnpc-dev \
-            libmfx-dev \
             libnotify-dev \
             libnuma-dev \
             libopus-dev \
@@ -279,7 +279,8 @@ jobs:
             libxfixes-dev \
             libxrandr-dev \
             libxtst-dev \
-            python3
+            python3 \
+            python3-venv
 
           # clean apt cache
           sudo apt-get clean
@@ -416,9 +417,6 @@ jobs:
         run: |
           sudo apt-get update -y
           sudo apt-get install -y \
-            doxygen \
-            graphviz \
-            python3-venv \
             x11-xserver-utils \
             xvfb
 
@@ -432,6 +430,7 @@ jobs:
         run: |
           export DISPLAY=:1
           Xvfb ${DISPLAY} -screen 0 1024x768x24 &
+          sleep 5  # give Xvfb time to start
 
           ./test_sunshine --gtest_color=yes
 
@@ -468,17 +467,18 @@ jobs:
 
       - name: Create/Update GitHub Release
         if: ${{ needs.setup_release.outputs.publish_release == 'true' }}
-        uses: LizardByte/create-release-action@v2024.520.211408
+        uses: LizardByte/create-release-action@v2024.614.221009
         with:
           allowUpdates: true
+          body: ${{ needs.setup_release.outputs.release_body }}
           discussionCategory: announcements
-          generateReleaseNotes: true
+          generateReleaseNotes: ${{ needs.setup_release.outputs.release_generate_release_notes }}
           name: ${{ needs.setup_release.outputs.release_tag }}
           prerelease: true
           tag: ${{ needs.setup_release.outputs.release_tag }}
           token: ${{ secrets.GH_BOT_TOKEN }}
 
-  build_mac_brew:
+  build_homebrew:
     needs: [setup_release]
     strategy:
       fail-fast: false  # false to test all, true to fail entire job if any fail
@@ -487,20 +487,22 @@ jobs:
           # https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners/about-github-hosted-runners#standard-github-hosted-runners-for-public-repositories
           # while GitHub has larger macOS runners, they are not available for our repos :(
           - os_version: "12"
-            release: true
+            os_name: "macos"
           - os_version: "13"
+            os_name: "macos"
           - os_version: "14"
-    name: Homebrew (macOS-${{ matrix.os_version }})
-    runs-on: macos-${{ matrix.os_version }}
+            os_name: "macos"
+          - os_version: "latest"
+            os_name: "ubuntu"
+          - os_version: "latest"  # this job will only configure the formula for release, no validation
+            os_name: "ubuntu"
+            release: true
+    name: Homebrew (${{ matrix.os_name }}-${{ matrix.os_version }}${{ matrix.release == true && ' (Release)' || '' }})
+    runs-on: ${{ matrix.os_name }}-${{ matrix.os_version }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Dependencies Homebrew
-        run: |
-          # install dependencies using homebrew
-          brew install cmake
 
       - name: Configure formula
         run: |
@@ -516,23 +518,38 @@ jobs:
             clone_url=${{ github.event.repository.clone_url }}
             branch="${{ github.ref_name }}"
             default_branch="${{ github.event.repository.default_branch }}"
+
+            if [ "${{ matrix.release }}" == "true" ]; then
+              # we will publish the formula with the release tag
+              tag="${{ needs.setup_release.outputs.release_tag }}"
+              version="${{ needs.setup_release.outputs.release_version }}"
+            else
+              tag="${{ github.ref_name }}"
+              version="0.0.${{ github.run_number }}"
+            fi
           else
             echo "This is a PR event"
+            build_version="0.0.${{ github.event.number }}"
             clone_url=${{ github.event.pull_request.head.repo.clone_url }}
             branch="${{ github.event.pull_request.head.ref }}"
             default_branch="${{ github.event.pull_request.head.repo.default_branch }}"
+            tag="${{ github.event.pull_request.head.ref }}"
+            version="0.0.${{ github.event.number }}"
           fi
           echo "Branch: ${branch}"
           echo "Clone URL: ${clone_url}"
+          echo "Tag: ${tag}"
 
           mkdir build
           cd build
           cmake \
             -DBUILD_VERSION="${build_version}" \
+            -DFORMULA_VERSION="${version}" \
             -DGITHUB_BRANCH="${branch}" \
             -DGITHUB_COMMIT="${commit}" \
             -DGITHUB_CLONE_URL="${clone_url}" \
             -DGITHUB_DEFAULT_BRANCH="${default_branch}" \
+            -DGITHUB_TAG="${tag}" \
             -DSUNSHINE_CONFIGURE_HOMEBREW=ON \
             -DSUNSHINE_CONFIGURE_ONLY=ON \
             ..
@@ -552,8 +569,24 @@ jobs:
           name: sunshine-homebrew
           path: homebrew/
 
+      - name: Setup Xvfb
+        if: |
+          matrix.release != true &&
+          runner.os == 'Linux'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            xvfb
+
+          export DISPLAY=:1
+          Xvfb ${DISPLAY} -screen 0 1024x768x24 &
+
+          echo "DISPLAY=${DISPLAY}" >> $GITHUB_ENV
+
       - name: Validate Homebrew Formula
-        uses: LizardByte/homebrew-release-action@v2024.522.222851
+        if: |
+          matrix.release != true
+        uses: LizardByte/homebrew-release-action@v2024.612.21058
         with:
           formula_file: ${{ github.workspace }}/homebrew/sunshine.rb
           git_email: ${{ secrets.GH_BOT_EMAIL }}
@@ -566,12 +599,13 @@ jobs:
         if: >-
           matrix.release &&
           needs.setup_release.outputs.publish_release == 'true'
-        uses: LizardByte/create-release-action@v2024.520.211408
+        uses: LizardByte/create-release-action@v2024.614.221009
         with:
           allowUpdates: true
           artifacts: '${{ github.workspace }}/homebrew/*'
+          body: ${{ needs.setup_release.outputs.release_body }}
           discussionCategory: announcements
-          generateReleaseNotes: true
+          generateReleaseNotes: ${{ needs.setup_release.outputs.release_generate_release_notes }}
           name: ${{ needs.setup_release.outputs.release_tag }}
           prerelease: true
           tag: ${{ needs.setup_release.outputs.release_tag }}
@@ -716,19 +750,31 @@ jobs:
           name: sunshine-macports
           path: artifacts/
 
-      - name: Fix screen capture permissions
-        if: ${{ matrix.os_version != 12 }}  # macOS-12 is okay
-        # can be removed if the following is fixed in the runner image
-        # https://github.com/actions/runner-images/issues/9529
-        # https://github.com/actions/runner-images/pull/9530
+      - name: Fix permissions
         run: |
           # https://apple.stackexchange.com/questions/362865/macos-list-apps-authorized-for-full-disk-access
+          # https://github.com/actions/runner-images/issues/9529
+          # https://github.com/actions/runner-images/pull/9530
 
-          # permissions for screen capture
-          values="'kTCCServiceScreenCapture','/opt/off/opt/runner/provisioner/provisioner',1,2,4,1,NULL,NULL,0,'UNUSED',NULL,0,1687786159"
+          # function to execute sql query for each value
+          function execute_sql_query {
+            local value=$1
+            local dbPath=$2
+
+            echo "Executing SQL query for value: $value"
+            sudo sqlite3 "$dbPath" "INSERT OR IGNORE INTO access VALUES($value);"
+          }
+
+          # permissions
+          declare -a values=(
+            "'kTCCServiceAccessibility','/opt/off/opt/runner/provisioner/provisioner',1,2,4,1,NULL,NULL,0,'UNUSED',NULL,NULL,1592919552"
+            "'kTCCServiceScreenCapture','/opt/off/opt/runner/provisioner/provisioner',1,2,4,1,NULL,NULL,0,'UNUSED',NULL,0,1687786159"
+          )
           if [[ "${{ matrix.os_version }}" == "14" ]]; then
             # TCC access table in Sonoma has extra 4 columns: pid, pid_version, boot_uuid, last_reminded
-            values="${values},NULL,NULL,'UNUSED',${values##*,}"
+            for i in "${!values[@]}"; do
+              values[$i]="${values[$i]},NULL,NULL,'UNUSED',${values[$i]##*,}"
+            done
           fi
 
           # system and user databases
@@ -737,32 +783,28 @@ jobs:
             "$HOME/Library/Application Support/com.apple.TCC/TCC.db"
           )
 
-          sqlQuery="INSERT OR IGNORE INTO access VALUES($values);"
-
-          for dbPath in "${dbPaths[@]}"; do
-            echo "Column names for $dbPath"
-            echo "-------------------"
-            sudo sqlite3 "$dbPath" "PRAGMA table_info(access);"
-            echo "Current permissions for $dbPath"
-            echo "-------------------"
-            sudo sqlite3 "$dbPath" "SELECT * FROM access WHERE service='kTCCServiceScreenCapture';"
-            sudo sqlite3 "$dbPath" "$sqlQuery"
-            echo "Updated permissions for $dbPath"
-            echo "-------------------"
-            sudo sqlite3 "$dbPath" "SELECT * FROM access WHERE service='kTCCServiceScreenCapture';"
+          for value in "${values[@]}"; do
+            for dbPath in "${dbPaths[@]}"; do
+              echo "Column names for $dbPath"
+              echo "-------------------"
+              sudo sqlite3 "$dbPath" "PRAGMA table_info(access);"
+              echo "Current permissions for $dbPath"
+              echo "-------------------"
+              sudo sqlite3 "$dbPath" "SELECT * FROM access WHERE service='kTCCServiceScreenCapture';"
+              execute_sql_query "$value" "$dbPath"
+              echo "Updated permissions for $dbPath"
+              echo "-------------------"
+              sudo sqlite3 "$dbPath" "SELECT * FROM access WHERE service='kTCCServiceScreenCapture';"
+            done
           done
 
       - name: Run tests
         id: test
         timeout-minutes: 10
+        working-directory:
+          /opt/local/var/macports/build/_Users_runner_work_Sunshine_Sunshine_ports_multimedia_Sunshine/Sunshine/work/build/tests
         run: |
-          sudo port test "Sunshine"
-
-      - name: Test Logs
-        if: always()
-        run: |
-          logfile="/opt/local/var/macports/logs/_Users_runner_work_Sunshine_Sunshine_ports_multimedia_Sunshine/Sunshine/main.log"
-          cat "$logfile"
+          sudo ./test_sunshine --gtest_color=yes
 
       - name: Generate gcov report
         # any except canceled or skipped
@@ -807,11 +849,12 @@ jobs:
 
       - name: Create/Update GitHub Release
         if: ${{ needs.setup_release.outputs.publish_release == 'true' }}
-        uses: LizardByte/create-release-action@v2024.520.211408
+        uses: LizardByte/create-release-action@v2024.614.221009
         with:
           allowUpdates: true
+          body: ${{ needs.setup_release.outputs.release_body }}
           discussionCategory: announcements
-          generateReleaseNotes: true
+          generateReleaseNotes: ${{ needs.setup_release.outputs.release_generate_release_notes }}
           name: ${{ needs.setup_release.outputs.release_tag }}
           prerelease: true
           tag: ${{ needs.setup_release.outputs.release_tag }}
@@ -938,20 +981,56 @@ jobs:
           msystem: ucrt64
           update: true
           install: >-
-            doxygen
-            git
-            mingw-w64-ucrt-x86_64-boost
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-curl
-            mingw-w64-ucrt-x86_64-graphviz
-            mingw-w64-ucrt-x86_64-miniupnpc
-            mingw-w64-ucrt-x86_64-nlohmann-json
-            mingw-w64-ucrt-x86_64-nodejs
-            mingw-w64-ucrt-x86_64-nsis
-            mingw-w64-ucrt-x86_64-onevpl
-            mingw-w64-ucrt-x86_64-openssl
-            mingw-w64-ucrt-x86_64-opus
+            wget
+
+      - name: Update Windows dependencies
+        shell: msys2 {0}
+        run: |
+          # download working curl
+          wget https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-curl-8.8.0-1-any.pkg.tar.zst
+
+          # install dependencies
+          pacman -U --noconfirm mingw-w64-ucrt-x86_64-curl-8.8.0-1-any.pkg.tar.zst
+          pacman -Syu --noconfirm \
+            --ignore=mingw-w64-ucrt-x86_64-curl \
+            git \
+            mingw-w64-ucrt-x86_64-boost \
+            mingw-w64-ucrt-x86_64-cmake \
+            mingw-w64-ucrt-x86_64-cppwinrt \
+            mingw-w64-ucrt-x86_64-graphviz \
+            mingw-w64-ucrt-x86_64-miniupnpc \
+            mingw-w64-ucrt-x86_64-nlohmann-json \
+            mingw-w64-ucrt-x86_64-nodejs \
+            mingw-w64-ucrt-x86_64-nsis \
+            mingw-w64-ucrt-x86_64-onevpl \
+            mingw-w64-ucrt-x86_64-openssl \
+            mingw-w64-ucrt-x86_64-opus \
             mingw-w64-ucrt-x86_64-toolchain
+
+      - name: Install Doxygen
+        # GCC compiled doxygen has issues when running graphviz
+        env:
+          DOXYGEN_VERSION: "1.11.0"
+        run: |
+          # Set version variables
+          $doxy_ver = $env:DOXYGEN_VERSION
+          $_doxy_ver = $doxy_ver.Replace(".", "_")
+
+          # Download the Doxygen installer
+          Invoke-WebRequest -Uri `
+            "https://github.com/doxygen/doxygen/releases/download/Release_${_doxy_ver}/doxygen-${doxy_ver}-setup.exe" `
+            -OutFile "doxygen-setup.exe"
+
+          # Run the installer
+          Start-Process `
+            -FilePath .\doxygen-setup.exe `
+            -ArgumentList `
+              '/VERYSILENT' `
+          -Wait `
+          -NoNewWindow
+
+          # Clean up
+          Remove-Item -Path doxygen-setup.exe
 
       - name: Setup python
         # use this instead of msys2 python due to known issues using wheels, https://www.msys2.org/docs/python/
@@ -983,8 +1062,8 @@ jobs:
           cmake \
             -DBUILD_WERROR=ON \
             -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+            -DPython_EXECUTABLE='${{ steps.python-path.outputs.python-path }}' \
             -DSUNSHINE_ASSETS_DIR=assets \
-            -DTESTS_PYTHON_EXECUTABLE='${{ steps.python-path.outputs.python-path }}' \
             -DTESTS_SOFTWARE_ENCODER_UNAVAILABLE='skip' \
             -G "MinGW Makefiles" \
             ..
@@ -1064,11 +1143,12 @@ jobs:
 
       - name: Create/Update GitHub Release
         if: ${{ needs.setup_release.outputs.publish_release == 'true' }}
-        uses: LizardByte/create-release-action@v2024.520.211408
+        uses: LizardByte/create-release-action@v2024.614.221009
         with:
           allowUpdates: true
+          body: ${{ needs.setup_release.outputs.release_body }}
           discussionCategory: announcements
-          generateReleaseNotes: true
+          generateReleaseNotes: ${{ needs.setup_release.outputs.release_generate_release_notes }}
           name: ${{ needs.setup_release.outputs.release_tag }}
           prerelease: true
           tag: ${{ needs.setup_release.outputs.release_tag }}

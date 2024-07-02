@@ -1,3 +1,4 @@
+option(BUILD_DOCS "Build documentation" ON)
 option(BUILD_TESTS "Build tests" ON)
 option(TESTS_ENABLE_PYTHON_TESTS "Enable Python tests" ON)
 
@@ -15,19 +16,24 @@ option(SUNSHINE_REQUIRE_TRAY "Require system tray icon. Fail the build if tray r
 
 option(SUNSHINE_SYSTEM_WAYLAND_PROTOCOLS "Use system installation of wayland-protocols rather than the submodule." OFF)
 
+if(APPLE)
+    option(BOOST_USE_STATIC "Use static boost libraries." OFF)
+else()
+    option(BOOST_USE_STATIC "Use static boost libraries." ON)
+endif()
+
 option(CUDA_INHERIT_COMPILE_OPTIONS
         "When building CUDA code, inherit compile options from the the main project. You may want to disable this if
         your IDE throws errors about unknown flags after running cmake." ON)
 
 if(UNIX)
-    # technically, the homebrew build could be on linux as well... no idea if it would actually work
     option(SUNSHINE_BUILD_HOMEBREW
             "Enable a Homebrew build." OFF)
-endif ()
+    option(SUNSHINE_CONFIGURE_HOMEBREW
+            "Configure Homebrew formula. Recommended to use with SUNSHINE_CONFIGURE_ONLY" OFF)
+endif()
 
 if(APPLE)
-    option(SUNSHINE_CONFIGURE_HOMEBREW
-            "Configure macOS Homebrew formula. Recommended to use with SUNSHINE_CONFIGURE_ONLY" OFF)
     option(SUNSHINE_CONFIGURE_PORTFILE
             "Configure macOS Portfile. Recommended to use with SUNSHINE_CONFIGURE_ONLY" OFF)
     option(SUNSHINE_PACKAGE_MACOS
@@ -53,4 +59,6 @@ elseif(UNIX)  # Linux
             "Enable building wayland specific code." ON)
     option(SUNSHINE_ENABLE_X11
             "Enable X11 grab if available." ON)
+    option(SUNSHINE_USE_LEGACY_INPUT  # TODO: Remove this legacy option after the next stable release
+            "Use the legacy virtual input implementation." OFF)
 endif()

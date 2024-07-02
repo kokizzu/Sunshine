@@ -30,13 +30,10 @@ set -e
 dnf -y update
 dnf -y group install "Development Tools"
 dnf -y install \
-  boost-devel-1.81.0* \
   cmake-3.27.* \
-  doxygen \
   gcc-13.2.* \
   gcc-c++-13.2.* \
   git \
-  graphviz \
   libappindicator-gtk3-devel \
   libcap-devel \
   libcurl-devel \
@@ -60,14 +57,10 @@ dnf -y install \
   openssl-devel \
   opus-devel \
   pulseaudio-libs-devel \
-  python3.11 \
   rpm-build \
   wget \
   which \
   xorg-x11-server-Xvfb
-if [[ "${TARGETPLATFORM}" == 'linux/amd64' ]]; then
-  dnf -y install intel-mediasdk-devel
-fi
 dnf clean all
 rm -rf /var/cache/yum
 _DEPS
@@ -114,6 +107,7 @@ RUN <<_MAKE
 set -e
 cmake \
   -DCMAKE_CUDA_COMPILER:PATH=/build/cuda/bin/nvcc \
+  -DBUILD_DOCS=OFF \
   -DBUILD_WERROR=ON \
   -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_INSTALL_PREFIX=/usr \

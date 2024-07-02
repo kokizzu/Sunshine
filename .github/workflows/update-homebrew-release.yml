@@ -47,7 +47,7 @@ jobs:
         id: download
         if: >-
           steps.check.outputs.hasTopic == 'true'
-        uses: robinraju/release-downloader@v1.10
+        uses: robinraju/release-downloader@v1.11
         with:
           repository: "${{ github.repository }}"
           tag: "${{ github.event.release.tag_name }}"
@@ -61,7 +61,7 @@ jobs:
         if: >-
           steps.check.outputs.hasTopic == 'true' &&
           fromJson(steps.download.outputs.downloaded_files)[0]
-        uses: LizardByte/homebrew-release-action@v2024.522.222851
+        uses: LizardByte/homebrew-release-action@v2024.612.21058
         with:
           formula_file: ${{ fromJson(steps.download.outputs.downloaded_files)[0] }}
           git_email: ${{ secrets.GH_BOT_EMAIL }}

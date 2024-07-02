@@ -1,10 +1,9 @@
 /**
  * @file src/confighttp.cpp
- * @brief todo
+ * @brief Definitions for the Web UI Config HTTP server.
  *
  * @todo Authentication, better handling of routes common to nvhttp, cleanup
  */
-
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 
 #include "process.h"
@@ -54,8 +53,8 @@ namespace confighttp {
   using req_https_t = std::shared_ptr<typename SimpleWeb::ServerBase<SimpleWeb::HTTPS>::Request>;
 
   enum class op_e {
-    ADD,
-    REMOVE
+    ADD,  ///< Add client
+    REMOVE  ///< Remove client
   };
 
   void
@@ -156,7 +155,9 @@ namespace confighttp {
               << data.str();
   }
 
-  // todo - combine these functions into a single function that accepts the page, i.e "index", "pin", "apps"
+  /**
+   * @todo combine these functions into a single function that accepts the page, i.e "index", "pin", "apps"
+   */
   void
   getIndexPage(resp_https_t response, req_https_t request) {
     if (!authenticate(response, request)) return;
@@ -255,10 +256,12 @@ namespace confighttp {
     response->write(content, headers);
   }
 
+  /**
+   * @todo combine function with getSunshineLogoImage and possibly getNodeModules
+   * @todo use mime_types map
+   */
   void
   getFaviconImage(resp_https_t response, req_https_t request) {
-    // todo - combine function with getSunshineLogoImage and possibly getNodeModules
-    // todo - use mime_types map
     print_req(request);
 
     std::ifstream in(WEB_DIR "images/sunshine.ico", std::ios::binary);
@@ -267,10 +270,12 @@ namespace confighttp {
     response->write(SimpleWeb::StatusCode::success_ok, in, headers);
   }
 
+  /**
+   * @todo combine function with getFaviconImage and possibly getNodeModules
+   * @todo use mime_types map
+   */
   void
   getSunshineLogoImage(resp_https_t response, req_https_t request) {
-    // todo - combine function with getFaviconImage and possibly getNodeModules
-    // todo - use mime_types map
     print_req(request);
 
     std::ifstream in(WEB_DIR "images/logo-sunshine-45.png", std::ios::binary);
@@ -501,9 +506,7 @@ namespace confighttp {
     auto url = inputTree.get("url", "");
 
     const std::string coverdir = platf::appdata().string() + "/covers/";
-    if (!boost::filesystem::exists(coverdir)) {
-      boost::filesystem::create_directories(coverdir);
-    }
+    file_handler::make_directory(coverdir);
 
     std::basic_string path = coverdir + http::url_escape(key) + ".png";
     if (!url.empty()) {
@@ -693,7 +696,8 @@ namespace confighttp {
       // TODO: Input Validation
       pt::read_json(ss, inputTree);
       std::string pin = inputTree.get<std::string>("pin");
-      outputTree.put("status", nvhttp::pin(pin));
+      std::string name = inputTree.get<std::string>("name");
+      outputTree.put("status", nvhttp::pin(pin, name));
     }
     catch (std::exception &e) {
       BOOST_LOG(warning) << "SavePin: "sv << e.what();
@@ -717,6 +721,60 @@ namespace confighttp {
       response->write(data.str());
     });
     nvhttp::erase_all_clients();
+    proc::proc.terminate();
+    outputTree.put("status", true);
+  }
+
+  void
+  unpair(resp_https_t response, req_https_t request) {
+    if (!authenticate(response, request)) return;
+
+    print_req(request);
+
+    std::stringstream ss;
+    ss << request->content.rdbuf();
+
+    pt::ptree inputTree, outputTree;
+
+    auto g = util::fail_guard([&]() {
+      std::ostringstream data;
+      pt::write_json(data, outputTree);
+      response->write(data.str());
+    });
+
+    try {
+      // TODO: Input Validation
+      pt::read_json(ss, inputTree);
+      std::string uuid = inputTree.get<std::string>("uuid");
+      outputTree.put("status", nvhttp::unpair_client(uuid));
+    }
+    catch (std::exception &e) {
+      BOOST_LOG(warning) << "Unpair: "sv << e.what();
+      outputTree.put("status", false);
+      outputTree.put("error", e.what());
+      return;
+    }
+  }
+
+  void
+  listClients(resp_https_t response, req_https_t request) {
+    if (!authenticate(response, request)) return;
+
+    print_req(request);
+
+    pt::ptree named_certs = nvhttp::get_all_clients();
+
+    pt::ptree outputTree;
+
+    outputTree.put("status", false);
+
+    auto g = util::fail_guard([&]() {
+      std::ostringstream data;
+      pt::write_json(data, outputTree);
+      response->write(data.str());
+    });
+
+    outputTree.add_child("named_certs", named_certs);
     outputTree.put("status", true);
   }
 
@@ -765,7 +823,9 @@ namespace confighttp {
     server.resource["^/api/restart$"]["POST"] = restart;
     server.resource["^/api/password$"]["POST"] = savePassword;
     server.resource["^/api/apps/([0-9]+)$"]["DELETE"] = deleteApp;
-    server.resource["^/api/clients/unpair$"]["POST"] = unpairAll;
+    server.resource["^/api/clients/unpair-all$"]["POST"] = unpairAll;
+    server.resource["^/api/clients/list$"]["GET"] = listClients;
+    server.resource["^/api/clients/unpair$"]["POST"] = unpair;
     server.resource["^/api/apps/close$"]["POST"] = closeApp;
     server.resource["^/api/covers/upload$"]["POST"] = uploadCover;
     server.resource["^/images/sunshine.ico$"]["GET"] = getFaviconImage;

@@ -96,7 +96,11 @@ Downloads
    :alt: Docker
    :target: https://hub.docker.com/r/lizardbyte/sunshine
 
-.. image:: https://img.shields.io/badge/dynamic/xml.svg?color=orange&label=Winget&style=for-the-badge&prefix=v&query=%2F%2Ftr%5B%40id%3D%27winget%27%5D%2Ftd%5B3%5D%2Fspan%2Fa&url=https%3A%2F%2Frepology.org%2Fproject%2Fsunshine%2Fversions&logo=microsoft
+.. image:: https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fipitio%2Fghcr-pulls%2Fmaster%2Findex.json&query=%24%5B%3F(%40.owner%3D%3D%22LizardByte%22%20%26%26%20%40.repo%3D%3D%22Sunshine%22%20%26%26%20%40.image%3D%3D%22sunshine%22)%5D.pulls&label=ghcr%20pulls&style=for-the-badge&logo=github
+   :alt: GHCR
+   :target: https://github.com/LizardByte/Sunshine/pkgs/container/sunshine
+
+.. image:: https://img.shields.io/badge/dynamic/json.svg?color=orange&label=Winget&style=for-the-badge&prefix=v&query=$[-1:].name&url=https%3A%2F%2Fapi.github.com%2Frepos%2Fmicrosoft%2Fwinget-pkgs%2Fcontents%2Fmanifests%2Fl%2FLizardByte%2FSunshine&logo=microsoft
    :alt: Winget Version
    :target: https://github.com/microsoft/winget-pkgs/tree/master/manifests/l/LizardByte/Sunshine
 

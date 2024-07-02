@@ -2,6 +2,9 @@
 # this file will also load platform specific macros
 
 add_executable(sunshine ${SUNSHINE_TARGET_FILES})
+foreach(dep ${SUNSHINE_TARGET_DEPENDENCIES})
+    add_dependencies(sunshine ${dep})  # compile these before sunshine
+endforeach()
 
 # platform specific target definitions
 if(WIN32)
@@ -57,6 +60,11 @@ add_custom_target(web-ui ALL
         COMMAND "${CMAKE_COMMAND}" -E env "SUNSHINE_BUILD_HOMEBREW=${NPM_BUILD_HOMEBREW}" "SUNSHINE_SOURCE_ASSETS_DIR=${NPM_SOURCE_ASSETS_DIR}" "SUNSHINE_ASSETS_DIR=${NPM_ASSETS_DIR}" "$<$<BOOL:${WIN32}>:cmd;/C>" "${NPM}" run build  # cmake-lint: disable=C0301
         COMMAND_EXPAND_LISTS
         VERBATIM)
+
+# docs
+if(BUILD_DOCS)
+    add_subdirectory(docs)
+endif()
 
 # tests
 if(BUILD_TESTS)

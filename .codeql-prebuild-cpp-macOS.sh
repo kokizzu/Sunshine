@@ -13,7 +13,10 @@ brew install \
 # build
 mkdir -p build
 cd build || exit 1
-cmake -G "Unix Makefiles" ..
+cmake \
+  -DBOOST_USE_STATIC=OFF \
+  -DBUILD_DOCS=OFF \
+  -G "Unix Makefiles" ..
 make -j"$(sysctl -n hw.logicalcpu)"
 
 # skip autobuild

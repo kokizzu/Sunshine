@@ -1,6 +1,6 @@
 /**
  * @file src/platform/linux/cuda.cpp
- * @brief todo
+ * @brief Definitions for CUDA encoding.
  */
 #include <bitset>
 #include <fcntl.h>
@@ -498,8 +498,8 @@ namespace cuda {
 
   /**
    * @brief Create a GL->CUDA encoding device for consuming captured dmabufs.
-   * @param in_width Width of captured frames.
-   * @param in_height Height of captured frames.
+   * @param width Width of captured frames.
+   * @param height Height of captured frames.
    * @param offset_x Offset of content in captured frame.
    * @param offset_y Offset of content in captured frame.
    * @return FFmpeg encoding device context.
@@ -613,6 +613,12 @@ namespace cuda {
       static std::optional<handle_t>
       make() {
         NVFBC_CREATE_HANDLE_PARAMS params { NVFBC_CREATE_HANDLE_PARAMS_VER };
+
+        // Set privateData to allow NvFBC on consumer NVIDIA GPUs.
+        // Based on https://github.com/keylase/nvidia-patch/blob/3193b4b1cea91527bf09ea9b8db5aade6a3f3c0a/win/nvfbcwrp/nvfbcwrp_main.cpp#L23-L25 .
+        const unsigned int MAGIC_PRIVATE_DATA[4] = { 0xAEF57AC5, 0x401D1A39, 0x1B856BBE, 0x9ED0CEBA };
+        params.privateData = MAGIC_PRIVATE_DATA;
+        params.privateDataSize = sizeof(MAGIC_PRIVATE_DATA);
 
         handle_t handle;
         auto status = func.nvFBCCreateHandle(&handle.handle, &params);

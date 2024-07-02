@@ -1,6 +1,6 @@
 /**
  * @file src/config.h
- * @brief todo
+ * @brief Declarations for the configuration of Sunshine.
  */
 #pragma once
 
@@ -21,6 +21,7 @@ namespace config {
     int hevc_mode;
     int av1_mode;
 
+    int min_fps_factor;  // Minimum fps target, determines minimum frame time
     int min_threads;  // Minimum number of threads/slices for CPU encoding
     struct {
       std::string sw_preset;
@@ -142,12 +143,12 @@ namespace config {
 
   namespace flag {
     enum flag_e : std::size_t {
-      PIN_STDIN = 0,  // Read PIN from stdin instead of http
-      FRESH_STATE,  // Do not load or save state
-      FORCE_VIDEO_HEADER_REPLACE,  // force replacing headers inside video data
-      UPNP,  // Try Universal Plug 'n Play
-      CONST_PIN,  // Use "universal" pin
-      FLAG_SIZE
+      PIN_STDIN = 0,  ///< Read PIN from stdin instead of http
+      FRESH_STATE,  ///< Do not load or save state
+      FORCE_VIDEO_HEADER_REPLACE,  ///< force replacing headers inside video data
+      UPNP,  ///< Try Universal Plug 'n Play
+      CONST_PIN,  ///< Use "universal" pin
+      FLAG_SIZE  ///< Number of flags
     };
   }
 

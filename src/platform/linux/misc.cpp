@@ -1,6 +1,6 @@
 /**
- * @file src/misc.cpp
- * @brief todo
+ * @file src/platform/linux/misc.cpp
+ * @brief Miscellaneous definitions for Linux.
  */
 
 // Required for in6_pktinfo with glibc headers
@@ -326,11 +326,6 @@ namespace platf {
     lifetime::exit_sunshine(0, true);
   }
 
-  /**
-   * @brief Attempt to gracefully terminate a process group.
-   * @param native_handle The process group ID.
-   * @return true if termination was successfully requested.
-   */
   bool
   request_process_group_exit(std::uintptr_t native_handle) {
     if (kill(-((pid_t) native_handle), SIGTERM) == 0 || errno == ESRCH) {
@@ -343,11 +338,6 @@ namespace platf {
     }
   }
 
-  /**
-   * @brief Checks if a process group still has running children.
-   * @param native_handle The process group ID.
-   * @return true if processes are still running.
-   */
   bool
   process_group_running(std::uintptr_t native_handle) {
     return waitpid(-((pid_t) native_handle), nullptr, WNOHANG) >= 0;
@@ -757,18 +747,18 @@ namespace platf {
   namespace source {
     enum source_e : std::size_t {
 #ifdef SUNSHINE_BUILD_CUDA
-      NVFBC,
+      NVFBC,  ///< NvFBC
 #endif
 #ifdef SUNSHINE_BUILD_WAYLAND
-      WAYLAND,
+      WAYLAND,  ///< Wayland
 #endif
 #ifdef SUNSHINE_BUILD_DRM
-      KMS,
+      KMS,  ///< KMS
 #endif
 #ifdef SUNSHINE_BUILD_X11
-      X11,
+      X11,  ///< X11
 #endif
-      MAX_FLAGS
+      MAX_FLAGS  ///< The maximum number of flags
     };
   }  // namespace source
 

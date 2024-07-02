@@ -72,6 +72,7 @@ editing the `conf` file in a text editor. Use the examples as reference.
    pt        Portuguese
    ru        Russian
    sv        Swedish
+   tr        Turkish
    zh        Chinese (Simplified)
    =======   ===========
 
@@ -216,7 +217,7 @@ editing the `conf` file in a text editor. Use the examples as reference.
    .. code-block:: text
 
       gamepad = auto
-      
+
 `ds4_back_as_touchpad_click <https://localhost:47990/config/#ds4_back_as_touchpad_click>`__
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -394,7 +395,7 @@ editing the `conf` file in a text editor. Use the examples as reference.
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 **Description**
-   When enabled, Sunshine will pass through native pen/touch events from Moonlight clients. 
+   When enabled, Sunshine will pass through native pen/touch events from Moonlight clients.
 
    This can be useful to disable for older applications without native pen/touch support.
 
@@ -695,6 +696,26 @@ keybindings
    .. code-block:: text
 
       fps = [10, 30, 60, 90, 120]
+
+min_fps_factor <https://localhost:47990/config/#min_fps_factor>`__
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+**Description**
+   Sunshine will use this factor to calculate the minimum time between frames. Increasing this value may help when
+   streaming mostly static content.
+
+   .. Warning:: Higher values will consume more bandwidth.
+
+**Default**
+   ``1``
+
+**Range**
+   ``1-3``
+
+**Example**
+   .. code-block:: text
+
+      min_fps_factor = 1
 
 `Network <https://localhost:47990/config/#network>`__
 -----------------------------------------------------
@@ -1113,25 +1134,23 @@ keybindings
 **Description**
    Force specific screen capture method.
 
-   .. caution:: Applies to Linux only.
-
 **Choices**
 
 .. table::
    :widths: auto
 
-   =========  ===========
-   Value      Description
-   =========  ===========
-   nvfbc      Use NVIDIA Frame Buffer Capture to capture direct to GPU memory. This is usually the fastest method for
-              NVIDIA cards. For GeForce cards it will only work with drivers patched with
-              `nvidia-patch <https://github.com/keylase/nvidia-patch/>`__
-              or `nvlax <https://github.com/illnyang/nvlax/>`__.
-   wlr        Capture for wlroots based Wayland compositors via DMA-BUF.
-   kms        DRM/KMS screen capture from the kernel. This requires that sunshine has cap_sys_admin capability.
-              See :ref:`Linux Setup <about/setup:install>`.
-   x11        Uses XCB. This is the slowest and most CPU intensive so should be avoided if possible.
-   =========  ===========
+   =========  ========  ===========
+   Value      Platform  Description
+   =========  ========  ===========
+   nvfbc      Linux     Use NVIDIA Frame Buffer Capture to capture direct to GPU memory. This is usually the fastest method for
+                        NVIDIA cards. NvFBC does not have native Wayland support and does not work with XWayland.
+   wlr        Linux     Capture for wlroots based Wayland compositors via DMA-BUF.
+   kms        Linux     DRM/KMS screen capture from the kernel. This requires that sunshine has cap_sys_admin capability.
+                        See :ref:`Linux Setup <about/setup:install>`.
+   x11        Linux     Uses XCB. This is the slowest and most CPU intensive so should be avoided if possible.
+   ddx        Windows   Use DirectX Desktop Duplication API to capture the display. This is well-supported on Windows machines.
+   wgc        Windows   (beta feature) Use Windows.Graphics.Capture to capture the display.
+   =========  ========  ===========
 
 **Default**
    Automatic. Sunshine will use the first capture method available in the order of the table above.
@@ -1158,6 +1177,7 @@ keybindings
    nvenc      For NVIDIA graphics cards
    quicksync  For Intel graphics cards
    amdvce     For AMD graphics cards
+   vaapi      Use Linux VA-API (AMD, Intel)
    software   Encoding occurs on the CPU
    =========  ===========
 

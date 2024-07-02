@@ -7,7 +7,53 @@
 # standard imports
 from datetime import datetime
 import os
+import shutil
 import subprocess
+from typing import Mapping, Optional
+
+
+# re-usable functions
+def _run_subprocess(
+        args_list: list,
+        cwd: Optional[str] = None,
+        env: Optional[Mapping] = None,
+) -> bool:
+    og_dir = os.getcwd()
+    if cwd:
+        os.chdir(cwd)
+    process = subprocess.Popen(
+        args=args_list,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        cwd=cwd,
+        encoding='utf-8',
+        env=env,
+        errors='replace',
+    )
+
+    if cwd:
+        os.chdir(og_dir)
+
+    # Print stdout and stderr in real-time
+    # https://stackoverflow.com/a/57970619/11214013
+    while True:
+        realtime_output = process.stdout.readline()
+
+        if realtime_output == '' and process.poll() is not None:
+            break
+
+        if realtime_output:
+            print(realtime_output.strip(), flush=True)
+
+    process.stdout.close()
+
+    exit_code = process.wait()
+
+    if exit_code != 0:
+        print(f'::error:: Process [{args_list}] failed with exit code', exit_code)
+        raise RuntimeError(f'Process [{args_list}] failed with exit code {exit_code}')
+    else:
+        return True
 
 
 # -- Path setup --------------------------------------------------------------
@@ -35,11 +81,9 @@ version = os.getenv('READTHEDOCS_VERSION', 'dirty')
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'breathe',  # c++ support for sphinx with doxygen
     'm2r2',  # enable markdown files
     'sphinx.ext.autosectionlabel',
     'sphinx.ext.todo',  # enable to-do sections
-    'sphinx.ext.graphviz',  # enable graphs for breathe
     'sphinx.ext.viewcode',  # add links to view source code
     'sphinx_copybutton',  # add a copy button to code blocks
     'sphinx_inline_tabs',  # add tabs
@@ -79,27 +123,25 @@ html_theme_options = {
 
 # extension config options
 autosectionlabel_prefix_document = True  # Make sure the target is unique
-breathe_default_project = 'src'
-breathe_implementation_filename_extensions = ['.c', '.cc', '.cpp', '.mm']
-breathe_order_parameters_first = False
-breathe_projects = dict(
-    src="../build/doxyxml"
-)
 todo_include_todos = True
 
 # disable epub mimetype warnings
 # https://github.com/readthedocs/readthedocs.org/blob/eadf6ac6dc6abc760a91e1cb147cc3c5f37d1ea8/docs/conf.py#L235-L236
 suppress_warnings = ["epub.unknown_project_files"]
 
+doxygen_cmd = os.getenv('DOXY_PATH', 'doxygen')
+print(f'doxygen command: {doxygen_cmd}')
+
 # get doxygen version
-doxy_proc = subprocess.run('doxygen --version', shell=True, cwd=source_dir, capture_output=True)
-doxy_version = doxy_proc.stdout.decode('utf-8').strip()
-print('doxygen version: ' + doxy_version)
+doxy_version = _run_subprocess(
+    args_list=[doxygen_cmd, '--version'],
+    cwd=source_dir,
+)
 
 # create build directories, as doxygen fails to create it in macports and docker
 directories = [
     os.path.join(source_dir, 'build'),
-    os.path.join(source_dir, 'build', 'doxyxml'),
+    os.path.join(source_dir, 'build', 'doxygen', 'doxyhtml'),
 ]
 for d in directories:
     os.makedirs(
@@ -107,7 +149,19 @@ for d in directories:
         exist_ok=True,
     )
 
+# remove existing html files
+# doxygen builds will not re-generated if the html directory already exists
+html_dir = os.path.join(source_dir, 'build', 'html')
+if os.path.exists(html_dir):
+    shutil.rmtree(html_dir)
+
 # run doxygen
-doxy_proc = subprocess.run('doxygen Doxyfile', shell=True, cwd=source_dir)
-if doxy_proc.returncode != 0:
-    raise RuntimeError('doxygen failed with return code ' + str(doxy_proc.returncode))
+doxy_proc = _run_subprocess(
+    args_list=[doxygen_cmd, 'Doxyfile'],
+    cwd=source_dir
+)
+
+# copy doxygen html files
+html_extra_path = [
+    os.path.join(source_dir, 'build', 'doxygen'),  # the final directory is omitted in order to have a proper path
+]

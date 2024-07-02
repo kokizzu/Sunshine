@@ -13,7 +13,6 @@ install=sunshine.install
 _gcc_version=13
 
 depends=('avahi'
-         'boost-libs'
          'curl'
          'libayatana-appindicator'
          'libcap'
@@ -33,20 +32,18 @@ depends=('avahi'
          'numactl'
          'openssl'
          'opus'
-         'python'
          'udev')
-checkdepends=('doxygen'
-              'graphviz')
-makedepends=('boost'
-             'cmake'
+makedepends=('cmake'
+             'doxygen'
              "gcc${_gcc_version}"
+             'graphviz'
              'git'
              'make'
              'nodejs'
-             'npm')
+             'npm'
+             'python')
 optdepends=('cuda: Nvidia GPU encoding support'
             'libva-mesa-driver: AMD GPU encoding support'
-            'intel-media-driver: Intel GPU encoding support'
             'xorg-server-xvfb: Virtual X server for headless testing')
 
 provides=('sunshine')

@@ -5,7 +5,6 @@
 PortSystem               1.0
 PortGroup                cmake 1.1
 PortGroup                github 1.0
-PortGroup                boost 1.0
 
 name                     @PROJECT_NAME@
 version                  @PROJECT_VERSION@
@@ -32,22 +31,20 @@ post-fetch {
 }
 
 # https://guide.macports.org/chunked/reference.dependencies.html
-depends_build-append     port:npm9 \
-                         port:pkgconfig
+depends_build-append     port:doxygen \
+                         port:graphviz \
+                         port:npm9 \
+                         port:pkgconfig \
+                         port:python311 \
+                         port:py311-pip
 
 depends_lib              port:avahi \
                          port:curl \
                          port:libopus \
-                         port:miniupnpc \
-                         port:python311 \
-                         port:py311-pip
+                         port:miniupnpc
 
-depends_test             port:doxygen \
-                         port:graphviz
-
-boost.version            1.81
-
-configure.args           -DBUILD_WERROR=ON \
+configure.args           -DBOOST_USE_STATIC=ON \
+                         -DBUILD_WERROR=ON \
                          -DCMAKE_INSTALL_PREFIX=${prefix} \
                          -DSUNSHINE_ASSETS_DIR=etc/sunshine/assets
 
@@ -77,4 +74,4 @@ test.run                 yes
 test.dir                 ${build.dir}/tests
 test.target              ""
 test.cmd                 ./test_sunshine
-test.args                --gtest_color=yes
+test.args                --gtest_color=yes --gtest_filter=-*HIDTest.*:-*DeathTest.*

@@ -168,6 +168,18 @@ Install
             flatpak run --command=remove-additional-install.sh dev.lizardbyte.sunshine
             flatpak uninstall --delete-data dev.lizardbyte.sunshine
 
+   .. tab:: Homebrew
+
+      .. important:: The Homebrew package is experimental.
+
+      #. Install `Homebrew <https://docs.brew.sh/Installation>`__
+      #. Update the Homebrew sources and install Sunshine.
+
+         .. code-block:: bash
+
+            brew tap LizardByte/homebrew
+            brew install sunshine
+
    .. tab:: RPM Package
 
       #. Add `rpmfusion` repositories by running the following code.
@@ -194,15 +206,16 @@ Install
 
             sudo dnf remove sunshine
 
-   The `deb`, `rpm`, `zst`, `Flatpak` and `AppImage` packages should handle these steps automatically.
+   The `deb`, `rpm`, `zst`, `Flatpak` and `AppImage` packages should handle the steps below automatically.
    Third party packages may not.
 
-   Sunshine needs access to `uinput` to create mouse and gamepad events.
+   Sunshine needs access to `uinput` to create mouse and gamepad virtual devices and (optionally) to `uhid`
+   in order to emulate a PS5 DualSense joypad with Gyro, Acceleration and Touchpad support.
 
-   #. Create and reload `udev` rules for uinput.
+   #. Create and reload `udev` rules for `uinput` and `uhid`.
          .. code-block:: bash
 
-            echo 'KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uaccess"' | \
+            echo 'KERNEL=="uinput", SUBSYSTEM=="misc", OPTIONS+="static_node=uinput", TAG+="uaccess"\nKERNEL=="uhid", TAG+="uaccess"' | \
             sudo tee /etc/udev/rules.d/60-sunshine.rules
             sudo udevadm control --reload-rules
             sudo udevadm trigger

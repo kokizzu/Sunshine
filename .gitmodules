@@ -10,10 +10,18 @@
 	path = third-party/build-deps
 	url = https://github.com/LizardByte/build-deps.git
 	branch = dist
+[submodule "third-party/doxygen-awesome-css"]
+	path = third-party/doxygen-awesome-css
+	url = https://github.com/jothepro/doxygen-awesome-css.git
+	branch = main
 [submodule "third-party/googletest"]
 	path = third-party/googletest
 	url = https://github.com/google/googletest/
 	branch = v1.14.x
+[submodule "third-party/inputtino"]
+	path = third-party/inputtino
+	url = https://github.com/games-on-whales/inputtino.git
+	branch = stable
 [submodule "third-party/moonlight-common-c"]
 	path = third-party/moonlight-common-c
 	url = https://github.com/moonlight-stream/moonlight-common-c.git

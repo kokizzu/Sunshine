@@ -1,6 +1,6 @@
 /**
  * @file src/upnp.cpp
- * @brief todo
+ * @brief Definitions for UPnP port mapping.
  */
 #include <miniupnpc/miniupnpc.h>
 #include <miniupnpc/upnpcommands.h>
@@ -19,19 +19,6 @@
 using namespace std::literals;
 
 namespace upnp {
-  constexpr auto INET6_ADDRESS_STRLEN = 46;
-
-  constexpr auto PORT_MAPPING_LIFETIME = 3600s;
-  constexpr auto REFRESH_INTERVAL = 120s;
-
-  constexpr auto IPv4 = 0;
-  constexpr auto IPv6 = 1;
-
-  using device_t = util::safe_ptr<UPNPDev, freeUPNPDevlist>;
-
-  KITTY_USING_MOVE_T(urls_t, UPNPUrls, , {
-    FreeUPNPUrls(&el);
-  });
 
   struct mapping_t {
     struct {
@@ -57,6 +44,19 @@ namespace upnp {
     }
 
     return "Unknown status"sv;
+  }
+
+  /**
+   * This function is a wrapper around UPNP_GetValidIGD() that returns the status code. There is a pre-processor
+   * check to determine which version of the function to call based on the version of the MiniUPnPc library.
+   */
+  int
+  UPNP_GetValidIGDStatus(device_t &device, urls_t *urls, IGDdatas *data, std::array<char, INET6_ADDRESS_STRLEN> &lan_addr) {
+#if (MINIUPNPC_API_VERSION >= 18)
+    return UPNP_GetValidIGD(device.get(), &urls->el, data, lan_addr.data(), lan_addr.size(), nullptr, 0);
+#else
+    return UPNP_GetValidIGD(device.get(), &urls->el, data, lan_addr.data(), lan_addr.size());
+#endif
   }
 
   class deinit_t: public platf::deinit_t {
@@ -95,7 +95,7 @@ namespace upnp {
     /**
      * @brief Opens pinholes for IPv6 traffic if the IGD is capable.
      * @details Not many IGDs support this feature, so we perform error logging with debug level.
-     * @return true if the pinholes were opened successfully.
+     * @return `true` if the pinholes were opened successfully.
      */
     bool
     create_ipv6_pinholes() {
@@ -109,7 +109,7 @@ namespace upnp {
       IGDdatas data;
       urls_t urls;
       std::array<char, INET6_ADDRESS_STRLEN> lan_addr;
-      auto status = UPNP_GetValidIGD(device.get(), &urls.el, &data, lan_addr.data(), lan_addr.size());
+      auto status = upnp::UPNP_GetValidIGDStatus(device, &urls, &data, lan_addr);
       if (status != 1 && status != 2) {
         BOOST_LOG(debug) << "No valid IPv6 IGD: "sv << status_string(status);
         return false;
@@ -280,8 +280,8 @@ namespace upnp {
 
     /**
      * @brief Unmaps all ports.
+     * @param urls urls_t from UPNP_GetValidIGD()
      * @param data IGDdatas from UPNP_GetValidIGD()
-     * @param data urls_t from UPNP_GetValidIGD()
      */
     void
     unmap_all_upnp_ports(const urls_t &urls, const IGDdatas &data) {
@@ -331,7 +331,7 @@ namespace upnp {
         std::array<char, INET6_ADDRESS_STRLEN> lan_addr;
 
         urls_t urls;
-        auto status = UPNP_GetValidIGD(device.get(), &urls.el, &data, lan_addr.data(), lan_addr.size());
+        auto status = upnp::UPNP_GetValidIGDStatus(device, &urls, &data, lan_addr);
         if (status != 1 && status != 2) {
           BOOST_LOG(error) << status_string(status);
           mapped = false;

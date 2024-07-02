@@ -1,6 +1,6 @@
 /**
- * @file src/rstp.cpp
- * @brief todo
+ * @file src/rtsp.cpp
+ * @brief Definitions for RTSP streaming.
  */
 #define BOOST_BIND_GLOBAL_PLACEHOLDERS
 
@@ -95,7 +95,7 @@ namespace rtsp_stream {
         handle_data_fn { std::move(handle_data_fn) }, sock { ios } {}
 
     /**
-     * @brief Queues an asynchronous read to begin the next message.
+     * @brief Queue an asynchronous read to begin the next message.
      */
     void
     read() {
@@ -130,7 +130,7 @@ namespace rtsp_stream {
     }
 
     /**
-     * @brief Handles the initial read of the header of an encrypted message.
+     * @brief Handle the initial read of the header of an encrypted message.
      * @param socket The socket the message was received on.
      * @param ec The error code of the read operation.
      * @param bytes The number of bytes read.
@@ -185,7 +185,7 @@ namespace rtsp_stream {
     }
 
     /**
-     * @brief Handles the final read of the content of an encrypted message.
+     * @brief Handle the final read of the content of an encrypted message.
      * @param socket The socket the message was received on.
      * @param ec The error code of the read operation.
      * @param bytes The number of bytes read.
@@ -251,7 +251,7 @@ namespace rtsp_stream {
     }
 
     /**
-     * @brief Queues an asynchronous read of the payload portion of a plaintext message.
+     * @brief Queue an asynchronous read of the payload portion of a plaintext message.
      */
     void
     read_plaintext_payload() {
@@ -275,7 +275,7 @@ namespace rtsp_stream {
     }
 
     /**
-     * @brief Handles the read of the payload portion of a plaintext message.
+     * @brief Handle the read of the payload portion of a plaintext message.
      * @param socket The socket the message was received on.
      * @param ec The error code of the read operation.
      * @param bytes The number of bytes read.
@@ -344,7 +344,7 @@ namespace rtsp_stream {
     }
 
     /**
-     * @brief Handles the read of the header portion of a plaintext message.
+     * @brief Handle the read of the header portion of a plaintext message.
      * @param socket The socket the message was received on.
      * @param ec The error code of the read operation.
      * @param bytes The number of bytes read.
@@ -562,11 +562,9 @@ namespace rtsp_stream {
     /**
      * @brief Clear launch sessions.
      * @param all If true, clear all sessions. Otherwise, only clear timed out and stopped sessions.
-     *
-     * EXAMPLES:
-     * ```cpp
+     * @examples
      * clear(false);
-     * ```
+     * @examples_end
      */
     void
     clear(bool all = true) {
@@ -641,10 +639,6 @@ namespace rtsp_stream {
     server.session_raise(std::move(launch_session));
   }
 
-  /**
-   * @brief Clear state for the specified launch session.
-   * @param launch_session_id The ID of the session to clear.
-   */
   void
   launch_session_clear(uint32_t launch_session_id) {
     server.session_clear(launch_session_id);
@@ -817,6 +811,12 @@ namespace rtsp_stream {
 
     if (video::active_av1_mode != 1) {
       ss << "a=rtpmap:98 AV1/90000"sv << std::endl;
+    }
+
+    if (!session.surround_params.empty()) {
+      // If we have our own surround parameters, advertise them twice first
+      ss << "a=fmtp:97 surround-params="sv << session.surround_params << std::endl;
+      ss << "a=fmtp:97 surround-params="sv << session.surround_params << std::endl;
     }
 
     for (int x = 0; x < audio::MAX_STREAM_CONFIG; ++x) {
@@ -1032,6 +1032,29 @@ namespace rtsp_stream {
           config.audio.flags[audio::config_t::HIGH_QUALITY] = (content.find("0.0.0.0"sv) == std::string::npos);
         }
       }
+    }
+    else if (session.surround_params.length() > 3) {
+      // Channels
+      std::uint8_t c = session.surround_params[0] - '0';
+      // Streams
+      std::uint8_t n = session.surround_params[1] - '0';
+      // Coupled streams
+      std::uint8_t m = session.surround_params[2] - '0';
+      auto valid = false;
+      if ((c == 6 || c == 8) && c == config.audio.channels && n + m == c && session.surround_params.length() == c + 3) {
+        config.audio.customStreamParams.channelCount = c;
+        config.audio.customStreamParams.streams = n;
+        config.audio.customStreamParams.coupledStreams = m;
+        valid = true;
+        for (std::uint8_t i = 0; i < c; i++) {
+          config.audio.customStreamParams.mapping[i] = session.surround_params[i + 3] - '0';
+          if (config.audio.customStreamParams.mapping[i] >= c) {
+            valid = false;
+            break;
+          }
+        }
+      }
+      config.audio.flags[audio::config_t::CUSTOM_SURROUND_PARAMS] = valid;
     }
 
     // If the client sent a configured bitrate, we will choose the actual bitrate ourselves
